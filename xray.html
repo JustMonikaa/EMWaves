@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X-RAY BLASTER</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #020008;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+  }
+
+  body::before {
+    content:''; position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.18) 3px,rgba(0,0,0,0.18) 4px);
+    pointer-events:none; z-index:200;
+  }
+  body::after {
+    content:''; position:fixed; inset:0;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.85) 100%);
+    pointer-events:none; z-index:201;
+  }
+
+  .title {
+    font-size: clamp(9px, 2.5vw, 16px);
+    color: #00ffff;
+    text-shadow: 0 0 8px #00ffff, 0 0 25px #0088ff, 0 0 60px rgba(0,255,255,0.4);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+    z-index:10;
+    animation: flicker 5s infinite;
+  }
+  @keyframes flicker {
+    0%,88%,100%{opacity:1} 89%{opacity:.3} 91%{opacity:1} 93%{opacity:.4} 95%{opacity:1}
+  }
+
+  .subtitle {
+    font-size: clamp(5px,1.2vw,8px);
+    color: #00ffaa;
+    text-shadow: 0 0 8px #00ffaa;
+    margin-bottom: 16px;
+    letter-spacing: 4px;
+    z-index:10;
+  }
+
+  .screen-wrap {
+    position:relative; z-index:10;
+    border: 3px solid #00ffff;
+    box-shadow:
+      0 0 0 3px #000,
+      0 0 0 5px #0088ff,
+      0 0 40px rgba(0,255,255,0.35),
+      0 0 90px rgba(0,150,255,0.15);
+    background: #000810;
+    border-radius: 2px;
+  }
+
+  .corner { position:absolute; width:20px; height:20px; z-index:12; }
+  .corner.tl{top:-4px;left:-4px;border-top:4px solid #0088ff;border-left:4px solid #0088ff;}
+  .corner.tr{top:-4px;right:-4px;border-top:4px solid #0088ff;border-right:4px solid #0088ff;}
+  .corner.bl{bottom:-4px;left:-4px;border-bottom:4px solid #0088ff;border-left:4px solid #0088ff;}
+  .corner.br{bottom:-4px;right:-4px;border-bottom:4px solid #0088ff;border-right:4px solid #0088ff;}
+
+  canvas { display:block; }
+
+  .hud-row {
+    display:flex; justify-content:space-between; align-items:flex-end;
+    width:100%; max-width:900px;
+    margin-top:14px; z-index:10; padding:0 8px;
+  }
+  .hud-group { display:flex; gap:28px; align-items:flex-start; }
+  .hud-box { display:flex; flex-direction:column; gap:6px; }
+  .hud-label { font-size:6px; color:#0088ff; text-shadow:0 0 5px #0088ff; }
+  .hud-value { font-size:10px; color:#ffffff; text-shadow:0 0 8px #ffffff; }
+
+  select.mode-dropdown {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: #001122;
+    color: #00ffff;
+    border: 2px solid #0088ff;
+    padding: 6px 8px;
+    box-shadow: 0 0 10px rgba(0, 136, 255, 0.4);
+    cursor: pointer;
+    outline: none;
+    text-shadow: 0 0 5px #00ffff;
+    transition: all 0.2s;
+  }
+  select.mode-dropdown:hover {
+    border-color: #00ffff;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+  }
+  select.mode-dropdown option {
+    background: #000810;
+    color: #00ffff;
+  }
+
+  .insert-coin {
+    font-size:8px; color:#00ffaa;
+    text-shadow:0 0 10px #00ffaa;
+    margin-top:16px; z-index:10;
+    animation: blink 1.2s step-end infinite;
+    letter-spacing:3px;
+  }
+  @keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+
+<div class="title">☢ X-RAY BLASTER ☢</div>
+<div class="subtitle">HIGH ENERGY EMISSION ENGINE</div>
+
+<div class="screen-wrap">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <canvas id="c"></canvas>
+</div>
+
+<div class="hud-row">
+  <div class="hud-group">
+    <div class="hud-box">
+      <div class="hud-label">EMISSION MODE</div>
+      <select class="mode-dropdown" id="modeSelect">
+        <option value="bremsstrahlung">BREMSSTRAHLUNG (METAL TARGET)</option>
+        <option value="characteristic">CHARACTERISTIC (INNER SHELL)</option>
+      </select>
+    </div>
+  </div>
+  <div class="hud-group">
+    <div class="hud-box">
+      <div class="hud-label">PHOTONS</div>
+      <div class="hud-value" id="photonEl">00000</div>
+    </div>
+    <div class="hud-box" style="text-align: right;">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-value" id="scoreEl" style="color:#00ffaa; text-shadow:0 0 8px #00ffaa;">00000000</div>
+    </div>
+  </div>
+</div>
+
+<div class="insert-coin">▶ SYSTEM AUTO-FIRING ELECTRONS ◀</div>
+
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  
+  let W, H, CX, CY;
+  let score = 0;
+  let photonCount = 0;
+  let mode = 'bremsstrahlung';
+  
+  let particles = [];
+  let photons = [];
+  let targetElectrons = [];
+  let hole = null;
+  let droppingElectron = null;
+  let holeTimer = 0;
+  let electronIdCounter = 0;
+
+  // SLOWED DOWN ORBITAL SPEEDS
+  const orbitSpeedK = 0.008;
+  const orbitSpeedL = 0.004;
+
+  function initSize() {
+    W = Math.min(window.innerWidth - 40, 900);
+    H = Math.min(window.innerHeight * 0.55, 500);
+    canvas.width = W;
+    canvas.height = H;
+    CX = W * 0.65;
+    CY = H * 0.5;
+  }
+  window.addEventListener('resize', initSize);
+  initSize();
+
+  function resetScene() {
+    particles = [];
+    photons = [];
+    targetElectrons = [];
+    hole = null;
+    droppingElectron = null;
+    holeTimer = 0;
+    
+    if (mode === 'characteristic') {
+      targetElectrons.push({ id: electronIdCounter++, shell: 'K', angle: Math.PI/2, radius: 35 });
+      targetElectrons.push({ id: electronIdCounter++, shell: 'K', angle: -Math.PI/2, radius: 35 });
+      for(let i=0; i<8; i++) {
+        targetElectrons.push({ id: electronIdCounter++, shell: 'L', angle: i * Math.PI/4, radius: 85 });
+      }
+    }
+  }
+
+  function updateHUD() {
+    document.getElementById('photonEl').innerText = String(photonCount).padStart(5, '0');
+    document.getElementById('scoreEl').innerText = String(score).padStart(8, '0');
+  }
+
+  document.getElementById('modeSelect').addEventListener('change', (e) => {
+    mode = e.target.value;
+    resetScene();
+  });
+
+  function drawTarget() {
+    ctx.beginPath();
+    ctx.arc(CX, CY, 16, 0, Math.PI*2);
+    let grad = ctx.createRadialGradient(CX, CY, 0, CX, CY, 16);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.4, '#ffaa00');
+    grad.addColorStop(1, '#ff0000');
+    ctx.fillStyle = grad;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#ff3300';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    
+    if (mode === 'characteristic') {
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(CX, CY, 35, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(CX, CY, 85, 0, Math.PI*2); ctx.stroke();
+      
+      targetElectrons.forEach(e => {
+        let ex = CX + Math.cos(e.angle) * e.radius;
+        let ey = CY + Math.sin(e.angle) * e.radius;
+        ctx.beginPath();
+        ctx.arc(ex, ey, 4, 0, Math.PI*2);
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#00ffff';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      
+      if (droppingElectron) {
+        let ex = CX + Math.cos(droppingElectron.angle) * droppingElectron.radius;
+        let ey = CY + Math.sin(droppingElectron.angle) * droppingElectron.radius;
+        ctx.beginPath();
+        ctx.arc(ex, ey, 5, 0, Math.PI*2);
+        ctx.fillStyle = '#ff00ff';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#ff00ff';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      if (hole) {
+        let hx = CX + Math.cos(hole.angle) * hole.radius;
+        let hy = CY + Math.sin(hole.angle) * hole.radius;
+        ctx.beginPath();
+        ctx.arc(hx, hy, 4, 0, Math.PI*2);
+        ctx.strokeStyle = '#ff0000';
+        ctx.setLineDash([2, 2]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    } else {
+      ctx.fillStyle = 'rgba(255, 100, 0, 0.08)';
+      ctx.beginPath();
+      ctx.arc(CX, CY, 80, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawPhotons() {
+    photons.forEach((ph, i) => {
+      ph.x += ph.vx;
+      ph.y += ph.vy;
+      ph.life -= 0.005; // SLOWER FADE
+      if (ph.life <= 0 || ph.x < -100 || ph.x > W+100 || ph.y < -100 || ph.y > H+100) {
+        photons.splice(i, 1);
+        return;
+      }
+      
+      let len = Math.sqrt(ph.vx*ph.vx + ph.vy*ph.vy);
+      let dirX = ph.vx / len;
+      let dirY = ph.vy / len;
+      let perpX = -dirY; 
+      let perpY = dirX;
+      
+      // PRONOUNCED, FADING SINUSOIDAL TAIL
+      let steps = 60; 
+      let wavelength = ph.type === 'characteristic' ? 0.35 : 0.20; 
+      let maxAmplitude = ph.type === 'characteristic' ? 8 : 5;
+      
+      let prevX = ph.x;
+      let prevY = ph.y;
+      
+      for(let j=1; j<=steps; j++) {
+        let distAlongTail = j * 1.5; // pixel spacing between segments
+        let phase = distAlongTail * wavelength;
+        
+        // Taper effect: highest at the front, fading to 0 at the end of the tail
+        let taper = 1 - (j / steps);
+        let offset = Math.sin(phase) * (maxAmplitude * taper);
+        
+        let px = ph.x - (dirX * distAlongTail) + (perpX * offset);
+        let py = ph.y - (dirY * distAlongTail) + (perpY * offset);
+        
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(px, py);
+        
+        let color = ph.type === 'characteristic' ? '#ff00ff' : '#00ffaa';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3.5 * taper; // Line gets thinner
+        ctx.globalAlpha = Math.max(0, taper * ph.life); // Fades out
+        ctx.shadowBlur = 15 * taper;
+        ctx.shadowColor = color;
+        ctx.stroke();
+        
+        prevX = px;
+        prevY = py;
+      }
+      
+      ctx.globalAlpha = 1.0;
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  function drawParticles() {
+    particles.forEach(p => {
+      if (p.trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(p.trail[0].x, p.trail[0].y);
+        for(let i=1; i<p.trail.length; i++) {
+          ctx.lineTo(p.trail[i].x, p.trail[i].y);
+        }
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#00ffff';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  function drawOverlays() {
+    ctx.fillStyle = 'rgba(0, 200, 255, 0.4)';
+    ctx.font = '7px "Press Start 2P"';
+    if (mode === 'bremsstrahlung') {
+      ctx.fillText('HEAVY METAL NUCLEUS', CX - 65, CY + 100);
+      ctx.fillText('DECELERATION = X-RAY', 15, 20);
+    } else {
+      ctx.fillText('K-SHELL', CX - 22, CY - 45);
+      ctx.fillText('L-SHELL', CX - 22, CY - 95);
+      ctx.fillText('ELECTRON TRANSITION', 15, 20);
+    }
+  }
+
+  function loop() {
+    ctx.clearRect(0, 0, W, H);
+    
+    // REDUCED AUTO FIRE RATE
+    if (Math.random() < 0.015) {
+      if (mode === 'bremsstrahlung') {
+        particles.push({
+          x: 0,
+          y: CY - 60 + Math.random() * 120,
+          vx: 4 + Math.random() * 2, // SLOWER PROJECTION
+          vy: 0,
+          hasEmitted: false,
+          trail: []
+        });
+      } else {
+        if (!hole && !droppingElectron) {
+          let targets = targetElectrons.filter(e => e.shell === 'K');
+          if (targets.length > 0) {
+            let target = targets[0];
+            particles.push({
+              x: 0,
+              y: CY + Math.sin(target.angle)*target.radius,
+              vx: 5, vy: 0, // SLOWER PROJECTION
+              type: 'projectile',
+              targetId: target.id,
+              trail: []
+            });
+          }
+        }
+      }
+    }
+
+    if (mode === 'bremsstrahlung') {
+      particles.forEach((p) => {
+        let dx = CX - p.x;
+        let dy = CY - p.y;
+        let distSq = dx*dx + dy*dy;
+        let dist = Math.sqrt(distSq);
+        
+        if (dist > 15) {
+          let f = 120 / distSq;  // ADJUSTED GRAVITY FOR SLOWER SPEED
+          p.vx += (dx/dist) * f;
+          p.vy += (dy/dist) * f;
+        }
+        
+        p.x += p.vx; p.y += p.vy;
+        p.trail.push({x: p.x, y: p.y});
+        if(p.trail.length > 40) p.trail.shift();
+        
+        if (!p.hasEmitted && dist < 55) {
+          p.hasEmitted = true;
+          let angle = Math.atan2(-dy, -dx);
+          photons.push({
+            x: p.x, y: p.y,
+            vx: Math.cos(angle) * 4, // SLOWER PHOTON
+            vy: Math.sin(angle) * 4,
+            life: 1.0,
+            type: 'bremsstrahlung'
+          });
+          photonCount++;
+          score += 150;
+          updateHUD();
+        }
+      });
+    } else {
+      targetElectrons.forEach(e => {
+        if (e.shell === 'K') e.angle += orbitSpeedK;
+        if (e.shell === 'L') e.angle += orbitSpeedL;
+      });
+      if (hole) hole.angle += orbitSpeedK;
+      if (droppingElectron) droppingElectron.targetAngle += orbitSpeedK;
+      
+      particles.forEach((p) => {
+        if (p.type === 'projectile' && p.targetId != null) {
+          let target = targetElectrons.find(e => e.id === p.targetId);
+          if (target) {
+            let tex = CX + Math.cos(target.angle) * target.radius;
+            let tey = CY + Math.sin(target.angle) * target.radius;
+            let ang = Math.atan2(tey - p.y, tex - p.x);
+            p.vx = Math.cos(ang) * 6; // SLOWER TARGETING
+            p.vy = Math.sin(ang) * 6;
+            
+            let dist = Math.hypot(p.x - tex, p.y - tey);
+            if (dist < 15 && !hole) {
+              p.type = 'scattered';
+              p.vx = 2; p.vy = -5; // SLOWER SCATTER
+              p.targetId = null;
+              
+              targetElectrons = targetElectrons.filter(e => e.id !== target.id);
+              
+              particles.push({
+                x: tex, y: tey,
+                vx: 3, vy: 3, // SLOWER SCATTER
+                type: 'scattered',
+                trail: []
+              });
+              
+              hole = { angle: target.angle, radius: target.radius };
+              holeTimer = 70; // LONGER PAUSE TO OBSERVE HOLE
+            }
+          }
+        }
+        p.x += p.vx; p.y += p.vy;
+        p.trail.push({x: p.x, y: p.y});
+        if(p.trail.length > 30) p.trail.shift();
+      });
+      
+      if (hole && holeTimer > 0) {
+        holeTimer--;
+        if (holeTimer <= 0 && !droppingElectron) {
+          let lShells = targetElectrons.filter(e => e.shell === 'L');
+          if (lShells.length > 0) {
+            lShells.sort((a,b) => Math.abs(a.angle - hole.angle) - Math.abs(b.angle - hole.angle));
+            droppingElectron = lShells[0];
+            targetElectrons = targetElectrons.filter(e => e.id !== droppingElectron.id);
+            droppingElectron.targetRadius = hole.radius;
+            droppingElectron.targetAngle = hole.angle;
+          }
+        }
+      }
+      
+      if (droppingElectron) {
+        // SLOWER DROP ANIMATION
+        droppingElectron.radius -= (droppingElectron.radius - droppingElectron.targetRadius) * 0.05;
+        let dAng = droppingElectron.targetAngle - droppingElectron.angle;
+        dAng = Math.atan2(Math.sin(dAng), Math.cos(dAng));
+        droppingElectron.angle += dAng * 0.05;
+        
+        if (Math.abs(droppingElectron.radius - droppingElectron.targetRadius) < 1) {
+          droppingElectron.shell = 'K';
+          droppingElectron.radius = droppingElectron.targetRadius;
+          droppingElectron.angle = droppingElectron.targetAngle;
+          targetElectrons.push(droppingElectron);
+          
+          let px = CX + Math.cos(droppingElectron.angle) * droppingElectron.radius;
+          let py = CY + Math.sin(droppingElectron.angle) * droppingElectron.radius;
+          let shootAng = droppingElectron.angle;
+          
+          photons.push({
+            x: px, y: py,
+            vx: Math.cos(shootAng) * 3.5, // SLOWER PHOTON
+            vy: Math.sin(shootAng) * 3.5,
+            life: 1.0,
+            type: 'characteristic'
+          });
+          
+          targetElectrons.push({
+             id: electronIdCounter++,
+             shell: 'L',
+             angle: droppingElectron.angle + Math.PI,
+             radius: 85
+          });
+
+          photonCount++;
+          score += 500;
+          updateHUD();
+          
+          droppingElectron = null;
+          hole = null;
+        }
+      }
+    }
+    
+    particles = particles.filter(p => p.x > -100 && p.x < W+100 && p.y > -100 && p.y < H+100);
+    
+    drawTarget();
+    drawPhotons();
+    drawParticles();
+    drawOverlays();
+    
+    requestAnimationFrame(loop);
+  }
+
+  resetScene();
+  updateHUD();
+  loop();
+
+</script>
+</body>
+</html>

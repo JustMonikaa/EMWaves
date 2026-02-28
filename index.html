@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELECTROMAGNETIC ARCADE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #020005;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated Background Canvas */
+  #bgCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.5; /* Keeps it subtle so the menu remains readable */
+  }
+
+  /* CRT Scanlines */
+  body::before {
+    content:''; position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.3) 3px,rgba(0,0,0,0.3) 4px);
+    pointer-events:none; z-index:200;
+  }
+  /* CRT Vignette */
+  body::after {
+    content:''; position:fixed; inset:0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.9) 100%);
+    pointer-events:none; z-index:201;
+  }
+
+  .title {
+    font-size: clamp(12px, 3vw, 24px);
+    color: #ffffff;
+    text-shadow: 0 0 10px #ffffff, 0 0 20px #00aaff, 0 0 40px rgba(0,170,255,0.6);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    z-index:10;
+    text-align: center;
+    animation: flicker 4s infinite;
+  }
+  @keyframes flicker {
+    0%,88%,100%{opacity:1} 89%{opacity:.4} 91%{opacity:1} 93%{opacity:.3} 95%{opacity:1}
+  }
+
+  .subtitle {
+    font-size: clamp(6px, 1.2vw, 10px);
+    color: #ffcc00;
+    text-shadow: 0 0 8px #ffcc00;
+    margin-bottom: 30px;
+    letter-spacing: 3px;
+    z-index:10;
+    text-align: center;
+  }
+
+  .screen-wrap {
+    position:relative; z-index:10;
+    border: 3px solid #4444ff;
+    box-shadow:
+      0 0 0 3px #000,
+      0 0 0 5px #2222aa,
+      0 0 30px rgba(68,68,255,0.3),
+      inset 0 0 40px rgba(0,0,0,0.8);
+    background: rgba(1, 1, 4, 0.85); /* Slightly transparent to see waves behind */
+    backdrop-filter: blur(2px);
+    border-radius: 4px;
+    padding: 30px 40px;
+    width: 90%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  /* Decorative Screen Corners */
+  .corner { position:absolute; width:15px; height:15px; z-index:12; }
+  .corner.tl{top:-4px;left:-4px;border-top:4px solid #8888ff;border-left:4px solid #8888ff;}
+  .corner.tr{top:-4px;right:-4px;border-top:4px solid #8888ff;border-right:4px solid #8888ff;}
+  .corner.bl{bottom:-4px;left:-4px;border-bottom:4px solid #8888ff;border-left:4px solid #8888ff;}
+  .corner.br{bottom:-4px;right:-4px;border-bottom:4px solid #8888ff;border-right:4px solid #8888ff;}
+
+  .menu-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-decoration: none;
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(8px, 1.5vw, 12px);
+    padding: 12px 16px;
+    background: #050011;
+    border: 2px solid;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Specific Colors for EM Spectrum from Low to High Energy */
+  .btn-radio { color: #ff3333; border-color: #aa1111; text-shadow: 0 0 8px #ff3333; }
+  .btn-micro { color: #ff8800; border-color: #aa5500; text-shadow: 0 0 8px #ff8800; }
+  .btn-ir { color: #ffff00; border-color: #aaaa00; text-shadow: 0 0 8px #ffff00; }
+  .btn-vis { color: #00ffaa; border-color: #00aa55; text-shadow: 0 0 8px #00ffaa; }
+  .btn-uv { color: #00aaff; border-color: #0055aa; text-shadow: 0 0 8px #00aaff; }
+  .btn-xray { color: #aa00ff; border-color: #5500aa; text-shadow: 0 0 8px #aa00ff; }
+  .btn-gamma { color: #ff00ff; border-color: #aa00aa; text-shadow: 0 0 8px #ff00ff; }
+
+  .menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.02);
+    box-shadow: 0 0 15px currentColor;
+    border-color: currentColor;
+  }
+  .menu-btn:active {
+    transform: scale(0.98);
+  }
+
+  .menu-btn::before {
+    content: '▶';
+    opacity: 0;
+    margin-right: 10px;
+    transition: opacity 0.2s;
+  }
+  .menu-btn:hover::before {
+    opacity: 1;
+  }
+
+  .energy-label {
+    font-size: 6px;
+    color: rgba(255, 255, 255, 0.6);
+    text-shadow: none;
+  }
+
+  .insert-coin {
+    font-size: clamp(8px, 1.5vw, 10px);
+    color: #ff0055;
+    text-shadow: 0 0 10px #ff0055;
+    margin-top: 30px;
+    z-index: 10;
+    animation: blink 1.2s step-end infinite;
+    letter-spacing: 3px;
+  }
+  @keyframes blink{50%{opacity:0}}
+
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="title">ELECTROMAGNETIC ARCADE</div>
+<div class="subtitle">SELECT SIMULATION MODULE</div>
+
+<div class="screen-wrap">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+
+  <a href="radiowave.html" class="menu-btn btn-radio">
+    <span>RADIO WAVES</span>
+    <span class="energy-label">LOW ENERGY</span>
+  </a>
+
+  <a href="microwave.html" class="menu-btn btn-micro">
+    <span>MICROWAVES</span>
+    <span class="energy-label">~ 1 GHz</span>
+  </a>
+
+  <a href="infrared.html" class="menu-btn btn-ir">
+    <span>INFRARED (IR)</span>
+    <span class="energy-label">~ 10 THz</span>
+  </a>
+
+  <a href="visibleuv.html" class="menu-btn btn-vis">
+    <span>VISIBLE LIGHT</span>
+    <span class="energy-label">~ 500 THz</span>
+  </a>
+
+  <a href="visibleuv.html" class="menu-btn btn-uv">
+    <span>ULTRAVIOLET (UV)</span>
+    <span class="energy-label">~ 1 PHz</span>
+  </a>
+
+  <a href="xray.html" class="menu-btn btn-xray">
+    <span>X-RAYS</span>
+    <span class="energy-label">~ 1 EHz</span>
+  </a>
+
+  <a href="gamma.html" class="menu-btn btn-gamma">
+    <span>GAMMA RAYS</span>
+    <span class="energy-label">MAX ENERGY</span>
+  </a>
+
+</div>
+
+<div class="insert-coin">INSERT COIN TO CONTINUE</div>
+
+<script>
+  // Hover sounds for buttons
+  const buttons = document.querySelectorAll('.menu-btn');
+  buttons.forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      // Audio context logic could go here if you decide to add actual sound files
+    });
+  });
+
+  // --- BACKGROUND CANVAS ANIMATION LOGIC ---
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  let time = 0;
+
+  // Colors mapping the EM spectrum (Radio -> Gamma)
+  const spectrumColors = ['#ff3333', '#ff8800', '#ffff00', '#00ffaa', '#00aaff', '#aa00ff', '#ff00ff'];
+  
+  // Retro Arcade Data Dust
+  let particles = [];
+
+  function initCanvas() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+    
+    particles = [];
+    for(let i=0; i<60; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        speed: Math.random() * 2 + 0.5,
+        size: Math.random() * 2 + 1
+      });
+    }
+  }
+  window.addEventListener('resize', initCanvas);
+  initCanvas();
+
+  function drawBackground() {
+    // Clear with a slight dark trail effect
+    ctx.fillStyle = 'rgba(2, 0, 5, 0.4)';
+    ctx.fillRect(0, 0, w, h);
+
+    time += 0.02;
+
+    // Draw scrolling background particles (Data dust)
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+    particles.forEach(p => {
+      p.x -= p.speed;
+      if (p.x < 0) { p.x = w; p.y = Math.random() * h; }
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+
+    // Calculate wave properties based on a slow oscillating cycle
+    // The cycle shifts the wave from Low Frequency/High Amp to High Frequency/Low Amp
+    let cycle = (Math.sin(time * 0.5) + 1) / 2; // Value between 0 and 1
+    
+    let frequency = 0.005 + (cycle * 0.06); 
+    let amplitude = 150 - (cycle * 120);
+    
+    // Pick color based on the cycle position
+    let colorIndex = Math.min(Math.floor(cycle * spectrumColors.length), spectrumColors.length - 1);
+    let currentColor = spectrumColors[colorIndex];
+
+    // Draw the EM Sine Wave
+    ctx.beginPath();
+    for(let x = 0; x <= w; x += 10) {
+      // Add a slight secondary wobble to make it look energetic
+      let wobble = Math.sin(x * 0.05 - time * 3) * (cycle * 10);
+      let y = (h / 2) + Math.sin((x * frequency) + (time * 2)) * amplitude + wobble;
+      
+      if(x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    // Glow effects
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = 4;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = currentColor;
+    ctx.stroke();
+    
+    // Core line
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 0;
+    ctx.stroke();
+
+    requestAnimationFrame(drawBackground);
+  }
+
+  drawBackground();
+</script>
+
+</body>
+</html>

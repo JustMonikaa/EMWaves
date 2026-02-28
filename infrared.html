@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>H₂O IR BLASTER</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #000d08;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+  }
+
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.15) 3px,rgba(0,0,0,0.15) 4px);
+    pointer-events:none; z-index:200;
+  }
+  body::after {
+    content:'';
+    position:fixed; inset:0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.8) 100%);
+    pointer-events:none; z-index:201;
+  }
+
+  .title {
+    font-size: clamp(9px, 2vw, 15px);
+    color: #ff3300;
+    text-shadow: 0 0 8px #ff3300, 0 0 30px #ff1100, 0 0 70px rgba(255,80,0,0.3);
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+    z-index:10;
+    animation: flicker 6s infinite;
+  }
+  @keyframes flicker {
+    0%,88%,100%{opacity:1} 89%{opacity:.2} 91%{opacity:1} 93%{opacity:.5} 95%{opacity:1}
+  }
+
+  .subtitle {
+    font-size: clamp(5px,1vw,8px);
+    color: #00ffaa;
+    text-shadow: 0 0 8px #00ffaa;
+    margin-bottom: 14px;
+    letter-spacing: 3px;
+    z-index:10;
+  }
+
+  .screen-wrap {
+    position:relative; z-index:10;
+    border: 3px solid #ff3300;
+    box-shadow:
+      0 0 0 3px #000,
+      0 0 0 5px #ffaa00,
+      0 0 50px rgba(255,50,0,0.45),
+      0 0 110px rgba(255,30,0,0.15);
+    background: #000d08;
+  }
+
+  .corner { position:absolute; width:18px; height:18px; z-index:12; }
+  .corner.tl{top:-4px;left:-4px;border-top:4px solid #ffaa00;border-left:4px solid #ffaa00;}
+  .corner.tr{top:-4px;right:-4px;border-top:4px solid #ffaa00;border-right:4px solid #ffaa00;}
+  .corner.bl{bottom:-4px;left:-4px;border-bottom:4px solid #ffaa00;border-left:4px solid #ffaa00;}
+  .corner.br{bottom:-4px;right:-4px;border-bottom:4px solid #ffaa00;border-right:4px solid #ffaa00;}
+
+  canvas { display:block; }
+
+  .hud-row {
+    display:flex; justify-content:space-between; align-items:flex-start;
+    width:100%; max-width:900px;
+    margin-top:10px; z-index:10; padding:0 4px;
+  }
+  .hud-group { display:flex; gap:22px; align-items:flex-start; }
+  .hud-box { display:flex; flex-direction:column; gap:3px; }
+  .hud-label { font-size:5px; color:#ff3300; text-shadow:0 0 5px #ff3300; }
+  .hud-value { font-size:8px; color:#ffaa00; text-shadow:0 0 7px #ffaa00; }
+  .hud-small { font-size:6px; color:#00ffaa; text-shadow:0 0 5px #00ffaa; }
+
+  .mode-indicator {
+    display:flex; gap:10px; align-items:center;
+  }
+  .mode-dot {
+    width:8px; height:8px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.3);
+    transition: box-shadow 0.1s;
+  }
+
+  .insert-coin {
+    font-size:7px; color:#ff3300;
+    text-shadow:0 0 10px #ff3300;
+    margin-top:9px; z-index:10;
+    animation: blink 1s step-end infinite;
+    letter-spacing:3px;
+  }
+  @keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+
+<div class="title">🔥 H₂O  IR  BLASTER  🔥</div>
+<div class="subtitle">MOLECULAR VIBRATION → INFRARED EMISSION ENGINE</div>
+
+<div class="screen-wrap">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <canvas id="c"></canvas>
+</div>
+
+<div class="hud-row">
+  <div class="hud-group">
+    <div class="hud-box">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-value" id="scoreEl">00000000</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">VIBE MODE</div>
+      <div class="hud-value" id="modeEl">BEND</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">IR BAND</div>
+      <div class="hud-small" id="bandEl">1595 cm⁻¹</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">PHOTONS</div>
+      <div class="hud-value" id="photonEl">0</div>
+    </div>
+  </div>
+  <div class="hud-box">
+    <div class="hud-label">MODES</div>
+    <div class="mode-indicator" id="modeIndicator">
+      <div class="mode-dot" id="dot0" title="BEND"></div>
+      <div class="mode-dot" id="dot1" title="SYM STR"></div>
+      <div class="mode-dot" id="dot2" title="ASYM STR"></div>
+    </div>
+    <div class="hud-small" id="modeDesc">SCISSOR BEND</div>
+  </div>
+</div>
+
+<div class="insert-coin">▶ WATER ABSORBS & EMITS IR ◀</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = Math.min(window.innerWidth - 40, 900);
+const H = Math.min(window.innerHeight * 0.60, 500);
+canvas.width = W; canvas.height = H;
+
+// ── Molecule center ──────────────────────────
+const MCX = W * 0.30;
+const MCY = H * 0.50;
+
+// Water molecule geometry
+// O at center, H1 top-left, H2 top-right
+// Bond angle ~104.5°
+const BOND_LEN = 62;
+const HALF_ANGLE = (104.5 / 2) * Math.PI / 180;
+
+// The 3 vibrational modes of H2O
+// Each mode has its own frequency and amplitude pattern
+const MODES = [
+  {
+    name: 'SCISSOR BEND',
+    short: 'BEND',
+    band: '1595 cm⁻¹',
+    wavenumber: 1595,
+    color: '#ff6600',
+    freq: 1.8,
+    // In bending: bond angle oscillates, O moves slightly down, Hs swing in/out
+    getAtoms(t, A) {
+      const dAngle = A * 0.28 * Math.sin(t);
+      const ang = HALF_ANGLE + dAngle;
+      const h1 = { x: MCX - Math.sin(ang)*BOND_LEN, y: MCY - Math.cos(ang)*BOND_LEN };
+      const h2 = { x: MCX + Math.sin(ang)*BOND_LEN, y: MCY - Math.cos(ang)*BOND_LEN };
+      // O bobs slightly opposite
+      const o  = { x: MCX, y: MCY + A * 5 * Math.sin(t) };
+      return { o, h1, h2, ang };
+    }
+  },
+  {
+    name: 'SYM STRETCH',
+    short: 'SYM STR',
+    band: '3657 cm⁻¹',
+    wavenumber: 3657,
+    color: '#00ffaa',
+    freq: 3.2,
+    // Symmetric: both O-H bonds stretch/compress in phase; O barely moves
+    getAtoms(t, A) {
+      const dLen = A * 18 * Math.sin(t);
+      const bLen = BOND_LEN + dLen;
+      const h1 = { x: MCX - Math.sin(HALF_ANGLE)*bLen, y: MCY - Math.cos(HALF_ANGLE)*bLen };
+      const h2 = { x: MCX + Math.sin(HALF_ANGLE)*bLen, y: MCY - Math.cos(HALF_ANGLE)*bLen };
+      const o  = { x: MCX, y: MCY + A * 2 * Math.sin(t) };
+      return { o, h1, h2 };
+    }
+  },
+  {
+    name: 'ASYM STRETCH',
+    short: 'ASYM STR',
+    band: '3756 cm⁻¹',
+    wavenumber: 3756,
+    color: '#ff00ff',
+    freq: 3.5,
+    // Asymmetric: one O-H stretches while other compresses; O rocks sideways
+    getAtoms(t, A) {
+      const dLen = A * 18 * Math.sin(t);
+      const bLen1 = BOND_LEN + dLen;
+      const bLen2 = BOND_LEN - dLen;
+      const oxRock = A * 8 * Math.sin(t);
+      const h1 = { x: MCX - Math.sin(HALF_ANGLE)*bLen1 + oxRock, y: MCY - Math.cos(HALF_ANGLE)*bLen1 };
+      const h2 = { x: MCX + Math.sin(HALF_ANGLE)*bLen2 + oxRock, y: MCY - Math.cos(HALF_ANGLE)*bLen2 };
+      const o  = { x: MCX + oxRock, y: MCY };
+      return { o, h1, h2 };
+    }
+  },
+];
+
+// Mode cycling
+let currentMode = 0;
+let modeT = 0; // time within mode
+const MODE_DURATION = 5.5; // seconds each
+let modeAge = 0;
+const MODE_AMP_ATTACK = 0.8; // ramp-up time
+const MODE_AMP_RELEASE = 0.8;
+
+let t = 0;
+let score = 0;
+let photons = 0;
+
+// IR photon particles
+const irPhotons = [];
+// Wavefronts
+const wavefronts = [];
+// Atom trails
+const oTrail = [], h1Trail = [], h2Trail = [];
+let lastWaveT = -99;
+
+// ── Stars ─────────────────────────────────────────────────
+const stars = Array.from({length:55},()=>({
+  x: Math.random()*W, y: Math.random()*H,
+  r: Math.random()*1.5+0.3,
+  phase: Math.random()*Math.PI*2,
+}));
+
+function drawStars() {
+  stars.forEach(s => {
+    const a = 0.2 + 0.3*Math.abs(Math.sin(t*0.8+s.phase));
+    ctx.fillStyle = `rgba(255,200,150,${a})`;
+    ctx.fillRect(s.x,s.y,s.r,s.r);
+  });
+}
+
+// ── Background ────────────────────────────────────────────
+function drawBg() {
+  // subtle hexagonal dot grid (molecule theme)
+  ctx.fillStyle='rgba(255,80,0,0.03)';
+  for(let gx=0;gx<W;gx+=24) for(let gy=0;gy<H;gy+=24) ctx.fillRect(gx,gy,1,1);
+  // radial glow behind molecule
+  const grd=ctx.createRadialGradient(MCX,MCY,0,MCX,MCY,160);
+  grd.addColorStop(0,'rgba(255,100,0,0.07)');
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+}
+
+// ── Bond spring ───────────────────────────────────────────
+function drawBond(ax,ay,bx,by,color,glow) {
+  ctx.save();
+  ctx.shadowColor=color; ctx.shadowBlur=glow||12;
+  ctx.strokeStyle=color; ctx.lineWidth=4;
+  ctx.lineCap='round';
+  // Wavy bond (oscillating spring look)
+  const dx=bx-ax, dy=by-ay;
+  const len=Math.sqrt(dx*dx+dy*dy);
+  const nx=-dy/len, ny=dx/len; // normal
+  const segs=8;
+  ctx.beginPath();
+  ctx.moveTo(ax,ay);
+  for(let i=1;i<=segs;i++){
+    const frac=i/segs;
+    const wave=Math.sin(frac*Math.PI*3)*8*(1-Math.abs(frac-0.5)*2+0.5)*0.6;
+    ctx.lineTo(ax+dx*frac+nx*wave, ay+dy*frac+ny*wave);
+  }
+  ctx.stroke();
+
+  // Electron density cloud (oval between atoms)
+  const mx=(ax+bx)/2, my=(ay+by)/2;
+  const angle=Math.atan2(dy,dx);
+  ctx.save();
+  ctx.translate(mx,my); ctx.rotate(angle);
+  const cloudGrd=ctx.createRadialGradient(0,0,2,0,0,len*0.38);
+  cloudGrd.addColorStop(0,'rgba(100,200,255,0.18)');
+  cloudGrd.addColorStop(1,'transparent');
+  ctx.fillStyle=cloudGrd;
+  ctx.beginPath();
+  ctx.ellipse(0,0,len*0.38,10,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  ctx.restore();
+}
+
+// ── Atom ──────────────────────────────────────────────────
+function drawAtom(x,y,label,radius,coreColor,glowColor,glowSize) {
+  // Outer glow
+  const grd=ctx.createRadialGradient(x,y,0,x,y,radius+glowSize*0.5);
+  grd.addColorStop(0,glowColor.replace(')',',0.4)').replace('rgb','rgba'));
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;
+  ctx.beginPath(); ctx.arc(x,y,radius+glowSize*0.5,0,Math.PI*2); ctx.fill();
+
+  // Core
+  const core=ctx.createRadialGradient(x-radius*0.3,y-radius*0.3,1,x,y,radius);
+  core.addColorStop(0,'#ffffff');
+  core.addColorStop(0.4,coreColor);
+  core.addColorStop(1,'rgba(0,0,0,0.7)');
+  ctx.shadowColor=glowColor; ctx.shadowBlur=glowSize;
+  ctx.fillStyle=core;
+  ctx.beginPath(); ctx.arc(x,y,radius,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0;
+
+  // Pixel outline ring
+  ctx.strokeStyle=glowColor; ctx.lineWidth=2;
+  ctx.shadowColor=glowColor; ctx.shadowBlur=8;
+  ctx.beginPath(); ctx.arc(x,y,radius+3+Math.sin(t*4)*1.5,0,Math.PI*2); ctx.stroke();
+  ctx.shadowBlur=0;
+
+  // Label
+  ctx.fillStyle='#fff';
+  ctx.font=`bold ${radius*0.9}px monospace`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(label,x,y+1);
+  ctx.textBaseline='alphabetic';
+}
+
+// ── Dipole moment arrow ───────────────────────────────────
+function drawDipole(atoms, mode) {
+  // Dipole moment vector points toward O (negative end)
+  // Oscillates with the vibration
+  const {o} = atoms;
+  const dipoleMag = 25 + 15*Math.sin(modeT*(mode.freq));
+  ctx.save();
+  ctx.globalAlpha=0.7;
+  ctx.strokeStyle='#ffcc00'; ctx.fillStyle='#ffcc00';
+  ctx.shadowColor='#ffcc00'; ctx.shadowBlur=10;
+  ctx.lineWidth=2.5;
+  const dy = dipoleMag;
+  ctx.beginPath();
+  ctx.moveTo(o.x, o.y+18);
+  ctx.lineTo(o.x, o.y+18+dy);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(o.x,o.y+18+dy);
+  ctx.lineTo(o.x-5,o.y+18+dy-10);
+  ctx.lineTo(o.x+5,o.y+18+dy-10);
+  ctx.closePath(); ctx.fill();
+  ctx.font='5px "Press Start 2P"';
+  ctx.textAlign='left';
+  ctx.fillText('μ',o.x+7,o.y+18+dy/2+3);
+  ctx.shadowBlur=0;
+  ctx.restore();
+}
+
+// ── IR Photon particles ───────────────────────────────────
+function addIRPhoton(ox, oy, modeColor) {
+  const angle = (Math.random()-0.5)*Math.PI*0.7 + Math.PI*0.5; // mostly right
+  const spd = 2.5 + Math.random()*2;
+  irPhotons.push({
+    x: ox + 80, y: oy,
+    vx: Math.cos(angle)*spd + 2,
+    vy: Math.sin(angle)*spd,
+    life: 1,
+    decay: 0.008 + Math.random()*0.005,
+    color: modeColor,
+    size: 3+Math.random()*4,
+    wave: Math.random()*Math.PI*2, // for wavy propagation
+    waveAmp: 3+Math.random()*5,
+    waveFreq: 0.1+Math.random()*0.1,
+    trail:[],
+    isPhoton: true,
+  });
+  photons++;
+}
+
+function drawIRPhotons() {
+  for(let i=irPhotons.length-1;i>=0;i--) {
+    const p=irPhotons[i];
+    p.wave += p.waveFreq;
+    p.x += p.vx;
+    p.y += p.vy + Math.sin(p.wave)*0.4;
+    p.life -= p.decay;
+    if(p.x>W+20||p.life<=0){irPhotons.splice(i,1);continue;}
+
+    p.trail.unshift({x:p.x,y:p.y});
+    if(p.trail.length>18) p.trail.pop();
+
+    // Trail
+    for(let j=1;j<p.trail.length;j++){
+      const a=p.life*(1-j/p.trail.length)*0.6;
+      const r=p.size*(1-j/p.trail.length)*0.7;
+      ctx.globalAlpha=a;
+      ctx.fillStyle=p.color;
+      ctx.shadowColor=p.color; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.arc(p.trail[j].x,p.trail[j].y,r,0,Math.PI*2); ctx.fill();
+    }
+    ctx.shadowBlur=0;
+
+    // Head (glowing dot)
+    ctx.globalAlpha=p.life;
+    const grd=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*2);
+    grd.addColorStop(0,'#ffffff');
+    grd.addColorStop(0.4,p.color);
+    grd.addColorStop(1,'transparent');
+    ctx.shadowColor=p.color; ctx.shadowBlur=18;
+    ctx.fillStyle=grd;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*1.4,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+
+    // Wavy EM sinusoid trail
+    if(p.trail.length>5) {
+      const startIdx=Math.min(5,p.trail.length-1);
+      ctx.beginPath();
+      ctx.strokeStyle=p.color; ctx.lineWidth=1.2;
+      ctx.shadowColor=p.color; ctx.shadowBlur=6;
+      let first=true;
+      for(let j=0;j<p.trail.length-1;j++) {
+        const px=p.trail[j].x, py=p.trail[j].y;
+        const wavY = py + Math.sin(j*0.5)*p.waveAmp*(1-j/p.trail.length);
+        first ? (ctx.moveTo(px,wavY),first=false) : ctx.lineTo(px,wavY);
+      }
+      ctx.globalAlpha=p.life*0.6;
+      ctx.stroke();
+      ctx.shadowBlur=0;
+    }
+    ctx.globalAlpha=1;
+  }
+}
+
+// ── Expanding IR wavefront rings ──────────────────────────
+function addWavefront(ox, oy, color) {
+  wavefronts.push({ cx:ox, cy:oy, r:20, alpha:0.9, color, speed:1.8 });
+}
+function drawWavefronts() {
+  for(let i=wavefronts.length-1;i>=0;i--) {
+    const wf=wavefronts[i];
+    wf.r += wf.speed; wf.speed*=1.02; wf.alpha -= 0.012;
+    if(wf.alpha<=0||wf.r>W){wavefronts.splice(i,1);continue;}
+    ctx.globalAlpha=wf.alpha;
+    ctx.strokeStyle=wf.color; ctx.lineWidth=1.5;
+    ctx.shadowColor=wf.color; ctx.shadowBlur=10;
+    ctx.beginPath(); ctx.arc(wf.cx,wf.cy,wf.r,0,Math.PI*2); ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.globalAlpha=1;
+  }
+}
+
+// ── Atom trails ───────────────────────────────────────────
+function updateTrail(trail, x, y, maxLen=10) {
+  trail.unshift({x,y});
+  if(trail.length>maxLen) trail.pop();
+}
+function drawTrail(trail, color) {
+  for(let i=1;i<trail.length;i++){
+    ctx.globalAlpha=(1-i/trail.length)*0.3;
+    ctx.fillStyle=color;
+    const r=4*(1-i/trail.length);
+    ctx.beginPath(); ctx.arc(trail[i].x,trail[i].y,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+// ── Mode label HUD ────────────────────────────────────────
+const modeColors=['#ff6600','#00ffaa','#ff00ff'];
+const modeShort=['BEND','SYM STR','ASYM STR'];
+const modeBand=['1595 cm⁻¹','3657 cm⁻¹','3756 cm⁻¹'];
+const modeDesc=['SCISSOR BEND','SYM. STRETCH','ASYM. STRETCH'];
+
+function updateModeHUD() {
+  document.getElementById('modeEl').textContent=modeShort[currentMode];
+  document.getElementById('modeEl').style.color=modeColors[currentMode];
+  document.getElementById('bandEl').textContent=modeBand[currentMode];
+  document.getElementById('modeDesc').textContent=modeDesc[currentMode];
+  document.getElementById('modeDesc').style.color=modeColors[currentMode];
+  [0,1,2].forEach(i=>{
+    const dot=document.getElementById('dot'+i);
+    dot.style.background = i===currentMode ? modeColors[i] : 'transparent';
+    dot.style.boxShadow = i===currentMode ? `0 0 8px ${modeColors[i]}` : 'none';
+    dot.style.border = `2px solid ${modeColors[i]}`;
+  });
+}
+
+// ── Info panel ────────────────────────────────────────────
+function drawInfoPanel(mode) {
+  const px=12, py=12, pw=188, ph=65;
+  ctx.fillStyle='rgba(0,10,5,0.85)';
+  ctx.fillRect(px,py,pw,ph);
+  ctx.strokeStyle=mode.color; ctx.lineWidth=1;
+  ctx.strokeRect(px,py,pw,ph);
+  ctx.fillStyle=mode.color;
+  ctx.font='5px "Press Start 2P"';
+  ctx.textAlign='left';
+  ctx.shadowColor=mode.color; ctx.shadowBlur=6;
+  ctx.fillText('VIBRATIONAL MODE', px+6,py+14);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#ffcc00';
+  ctx.font='7px "Press Start 2P"';
+  ctx.fillText(mode.name, px+6, py+28);
+  ctx.fillStyle='rgba(200,255,200,0.8)';
+  ctx.font='5px "Press Start 2P"';
+  ctx.fillText(`λ: ${mode.band}`, px+6, py+41);
+  ctx.fillText('DIPOLE CHANGE → IR PHOTON', px+6, py+55);
+}
+
+// ── Oscilloscope ──────────────────────────────────────────
+function drawOscilloscope(mode, amp) {
+  const bx=W-192,by=H-60,bw=178,bh=48;
+  ctx.fillStyle='rgba(0,10,5,0.85)';
+  ctx.fillRect(bx,by,bw,bh);
+  ctx.strokeStyle=mode.color; ctx.lineWidth=1;
+  ctx.strokeRect(bx,by,bw,bh);
+  ctx.fillStyle=mode.color; ctx.font='5px "Press Start 2P"'; ctx.textAlign='left';
+  ctx.shadowColor=mode.color; ctx.shadowBlur=4;
+  ctx.fillText('DIPOLE MOMENT', bx+5,by+10);
+  ctx.shadowBlur=0;
+  ctx.beginPath();
+  ctx.strokeStyle=mode.color; ctx.lineWidth=1.8;
+  ctx.shadowColor=mode.color; ctx.shadowBlur=8;
+  for(let px=0;px<bw-10;px++){
+    const phase=(px/(bw-10))*Math.PI*5 - modeT*mode.freq*2.5;
+    const envDecay=Math.exp(-Math.abs(px/(bw-10)-0.4)*3)*0.9;
+    const py2=(bh/2+8)-Math.sin(phase)*amp*(bh*0.28)*envDecay;
+    px===0 ? ctx.moveTo(bx+5+px,by+py2) : ctx.lineTo(bx+5+px,by+py2);
+  }
+  ctx.stroke();
+  ctx.shadowBlur=0;
+}
+
+// ── Mode label on canvas ──────────────────────────────────
+function drawModeLabel(mode, amp) {
+  const alpha = Math.min(amp*2, 1);
+  ctx.globalAlpha=alpha*0.9;
+  ctx.fillStyle=mode.color;
+  ctx.font='8px "Press Start 2P"';
+  ctx.textAlign='center';
+  ctx.shadowColor=mode.color; ctx.shadowBlur=12;
+  ctx.fillText(`[ ${mode.name} ]`, MCX, MCY + BOND_LEN + 60);
+  ctx.shadowBlur=0;
+  ctx.globalAlpha=1;
+}
+
+// ── Energy level bars ─────────────────────────────────────
+function drawEnergyBars(mode, amp) {
+  const bx=MCX-80, by=H-28, bw=160, bh=12;
+  ctx.fillStyle='rgba(0,10,5,0.6)';
+  ctx.fillRect(bx,by,bw,bh);
+  ctx.strokeStyle=mode.color; ctx.lineWidth=1;
+  ctx.strokeRect(bx,by,bw,bh);
+  const fill=Math.abs(Math.sin(modeT*mode.freq))*amp;
+  const grd=ctx.createLinearGradient(bx,0,bx+bw,0);
+  grd.addColorStop(0,mode.color);
+  grd.addColorStop(0.7,'#ffff00');
+  grd.addColorStop(1,'#ffffff');
+  ctx.fillStyle=grd;
+  ctx.shadowColor=mode.color; ctx.shadowBlur=8;
+  ctx.fillRect(bx+1,by+1,(bw-2)*fill,bh-2);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(255,200,100,0.7)';
+  ctx.font='5px "Press Start 2P"';
+  ctx.textAlign='center';
+  ctx.fillText('VIBRATIONAL ENERGY',MCX,by-3);
+}
+
+// ── Main frame ────────────────────────────────────────────
+let score_ = 0;
+let lastModeSwitch = 0;
+const SCORE_EL = document.getElementById('scoreEl');
+const PHOTON_EL = document.getElementById('photonEl');
+
+function frame() {
+  ctx.clearRect(0,0,W,H);
+  drawBg();
+  drawStars();
+
+  // Mode cycling
+  modeAge += 0.016;
+  modeT += 0.016;
+  if(modeAge > MODE_DURATION) {
+    currentMode=(currentMode+1)%3;
+    modeAge=0; modeT=0;
+    lastWaveT = -99;
+    updateModeHUD();
+  }
+
+  const mode = MODES[currentMode];
+
+  // Amplitude envelope: ramp in, sustain, ramp out
+  let amp;
+  if(modeAge < MODE_AMP_ATTACK) amp = modeAge/MODE_AMP_ATTACK;
+  else if(modeAge > MODE_DURATION - MODE_AMP_RELEASE) amp = (MODE_DURATION - modeAge)/MODE_AMP_RELEASE;
+  else amp = 1;
+
+  // Get atom positions
+  const atoms = mode.getAtoms(modeT * mode.freq, amp);
+  const {o, h1, h2} = atoms;
+
+  // Trails
+  updateTrail(oTrail, o.x, o.y);
+  updateTrail(h1Trail, h1.x, h1.y);
+  updateTrail(h2Trail, h2.x, h2.y);
+
+  drawTrail(oTrail, '#ff3300');
+  drawTrail(h1Trail, '#00aaff');
+  drawTrail(h2Trail, '#00aaff');
+
+  // Bonds
+  const bondGlow = 8 + amp*12;
+  drawBond(o.x,o.y, h1.x,h1.y, `hsl(${190+currentMode*30},100%,65%)`, bondGlow);
+  drawBond(o.x,o.y, h2.x,h2.y, `hsl(${190+currentMode*30},100%,65%)`, bondGlow);
+
+  // Dipole moment arrow
+  drawDipole(atoms, mode);
+
+  // Atoms
+  drawAtom(o.x,  o.y,  'O', 22, '#ff3300', '#ff6600', 20+amp*15);
+  drawAtom(h1.x, h1.y, 'H', 14, '#0088ff', '#00aaff', 12+amp*8);
+  drawAtom(h2.x, h2.y, 'H', 14, '#0088ff', '#00aaff', 12+amp*8);
+
+  // Velocity vectors on H atoms (small arrows showing motion)
+  if(amp > 0.3) {
+    [[h1,'H1'],[h2,'H2']].forEach(([atom, label])=>{
+      const dx=atom.x-o.x, dy=atom.y-o.y;
+      const len=Math.sqrt(dx*dx+dy*dy)||1;
+      // Stretch mode: arrow along bond
+      const vScale=amp*0.55;
+      const vx=dx/len*20*vScale, vy=dy/len*20*vScale;
+      const phase=Math.sin(modeT*mode.freq);
+      ctx.save();
+      ctx.globalAlpha=Math.abs(phase)*0.85;
+      ctx.strokeStyle='#ffcc00'; ctx.fillStyle='#ffcc00';
+      ctx.shadowColor='#ffcc00'; ctx.shadowBlur=8;
+      ctx.lineWidth=2;
+      const dir=Math.sign(phase);
+      ctx.beginPath();
+      ctx.moveTo(atom.x,atom.y);
+      ctx.lineTo(atom.x+vx*dir,atom.y+vy*dir);
+      ctx.stroke();
+      const tipX=atom.x+vx*dir, tipY=atom.y+vy*dir;
+      const nx=-vy/20, ny=vx/20;
+      ctx.beginPath();
+      ctx.moveTo(tipX,tipY);
+      ctx.lineTo(tipX-vx*dir*0.35+nx*5,tipY-vy*dir*0.35+ny*5);
+      ctx.lineTo(tipX-vx*dir*0.35-nx*5,tipY-vy*dir*0.35-ny*5);
+      ctx.closePath(); ctx.fill();
+      ctx.shadowBlur=0; ctx.restore();
+    });
+  }
+
+  // Emit IR photons & wavefronts on dipole change peak
+  const dipolePhase = Math.sin(modeT * mode.freq);
+  const absDipole = Math.abs(dipolePhase);
+  if(amp > 0.3 && absDipole > 0.75 && modeT - lastWaveT > 0.35) {
+    addIRPhoton(o.x, o.y, mode.color);
+    addIRPhoton(o.x, o.y, mode.color);
+    addWavefront(o.x, o.y, mode.color);
+    lastWaveT = modeT;
+    score += 120;
+  }
+
+  drawWavefronts();
+  drawIRPhotons();
+
+  // IR spectrum annotation: show a little IR spectrum bar to the right
+  {
+    const sx=W*0.60, sy=H*0.12, sw=W*0.35, sh=16;
+    ctx.fillStyle='rgba(0,8,3,0.8)';
+    ctx.fillRect(sx,sy,sw,sh);
+    ctx.strokeStyle='rgba(255,100,0,0.4)'; ctx.lineWidth=1;
+    ctx.strokeRect(sx,sy,sw,sh);
+    // IR spectrum gradient bar
+    const specGrd=ctx.createLinearGradient(sx,0,sx+sw,0);
+    specGrd.addColorStop(0,'rgba(255,0,0,0.6)');   // far IR
+    specGrd.addColorStop(0.3,'rgba(255,100,0,0.5)');
+    specGrd.addColorStop(0.6,'rgba(255,150,50,0.4)');
+    specGrd.addColorStop(1,'rgba(255,220,100,0.2)'); // near IR
+    ctx.fillStyle=specGrd;
+    ctx.fillRect(sx+1,sy+1,sw-2,sh-2);
+
+    // Absorption peaks
+    const peaks=[
+      {wavenumber:1595,label:'ν₂',color:'#ff6600'},
+      {wavenumber:3657,label:'ν₁',color:'#00ffaa'},
+      {wavenumber:3756,label:'ν₃',color:'#ff00ff'},
+    ];
+    const wMin=400, wMax=4000;
+    peaks.forEach(pk=>{
+      const frac=1-(pk.wavenumber-wMin)/(wMax-wMin); // reversed (IR spectra)
+      const px2=sx+frac*sw;
+      const isActive = pk.wavenumber===mode.wavenumber;
+      const glowMult = isActive ? (0.5+0.5*Math.abs(dipolePhase)) : 0.3;
+      ctx.strokeStyle=pk.color; ctx.lineWidth=isActive?2.5:1;
+      ctx.shadowColor=pk.color; ctx.shadowBlur=isActive?12:4;
+      ctx.globalAlpha=glowMult;
+      ctx.beginPath(); ctx.moveTo(px2,sy); ctx.lineTo(px2,sy+sh); ctx.stroke();
+      ctx.shadowBlur=0; ctx.globalAlpha=1;
+      ctx.fillStyle=pk.color; ctx.font='5px "Press Start 2P"'; ctx.textAlign='center';
+      ctx.shadowColor=pk.color; ctx.shadowBlur=4;
+      ctx.globalAlpha=glowMult;
+      ctx.fillText(pk.label,px2,sy-3);
+      ctx.shadowBlur=0; ctx.globalAlpha=1;
+    });
+    ctx.fillStyle='rgba(255,150,50,0.6)'; ctx.font='5px "Press Start 2P"'; ctx.textAlign='left';
+    ctx.fillText('IR SPECTRUM  ←4000      400 cm⁻¹→',sx+3,sy+sh+9);
+    ctx.fillText('WAVENUMBER',sx+sw-60,sy+sh+9);
+  }
+
+  drawModeLabel(mode, amp);
+  drawInfoPanel(mode);
+  drawEnergyBars(mode, amp);
+  drawOscilloscope(mode, amp);
+
+  // Score
+  ctx.fillStyle='#ffaa00'; ctx.font='8px "Press Start 2P"';
+  ctx.textAlign='right';
+  ctx.shadowColor='#ffaa00'; ctx.shadowBlur=8;
+  ctx.fillText('1UP',W-10,22);
+  ctx.shadowBlur=0;
+
+  // Watermark
+  ctx.fillStyle='rgba(255,80,0,0.25)'; ctx.font='5px "Press Start 2P"';
+  ctx.textAlign='center';
+  ctx.fillText('© 2084 QUANTUM LABS – H₂O RESONANCE UNIT',W/2,H-6);
+
+  // Update HUD
+  SCORE_EL.textContent=String(score).padStart(8,'0');
+  PHOTON_EL.textContent=String(photons).padStart(5,'0');
+
+  t+=0.016;
+  requestAnimationFrame(frame);
+}
+
+updateModeHUD();
+frame();
+</script>
+</body>
+</html>

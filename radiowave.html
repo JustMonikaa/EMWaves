@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELECTRON BLASTER – Antenna Wave Visualizer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;900&display=swap');
+
+  :root {
+    --neon-cyan: #00ffff;
+    --neon-pink: #ff00ff;
+    --neon-yellow: #ffff00;
+    --neon-green: #00ff88;
+    --neon-orange: #ff6600;
+    --dark-bg: #050510;
+    --grid-color: rgba(0,255,255,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+  }
+
+  /* Scanlines overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.18) 2px,
+      rgba(0,0,0,0.18) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* CRT grid background */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(10px, 2vw, 18px);
+    color: var(--neon-yellow);
+    text-shadow: 0 0 10px var(--neon-yellow), 0 0 30px var(--neon-orange);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+    z-index: 10;
+    animation: titleFlicker 4s infinite;
+  }
+
+  @keyframes titleFlicker {
+    0%,95%,100% { opacity: 1; }
+    96% { opacity: 0.4; }
+    97% { opacity: 1; }
+    98% { opacity: 0.2; }
+    99% { opacity: 1; }
+  }
+
+  .subtitle {
+    font-size: clamp(6px, 1vw, 10px);
+    color: var(--neon-cyan);
+    text-shadow: 0 0 8px var(--neon-cyan);
+    margin-bottom: 24px;
+    letter-spacing: 4px;
+    z-index: 10;
+  }
+
+  .canvas-wrapper {
+    position: relative;
+    z-index: 10;
+    border: 3px solid var(--neon-cyan);
+    box-shadow:
+      0 0 0 3px #000,
+      0 0 0 6px var(--neon-pink),
+      0 0 40px var(--neon-cyan),
+      0 0 80px rgba(0,255,255,0.2),
+      inset 0 0 40px rgba(0,255,255,0.03);
+    border-radius: 4px;
+    background: rgba(0,5,20,0.95);
+  }
+
+  canvas {
+    display: block;
+    border-radius: 2px;
+  }
+
+  .hud {
+    display: flex;
+    gap: 30px;
+    margin-top: 16px;
+    z-index: 10;
+  }
+
+  .hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .hud-label {
+    font-size: 7px;
+    color: var(--neon-pink);
+    text-shadow: 0 0 6px var(--neon-pink);
+    letter-spacing: 2px;
+  }
+
+  .hud-value {
+    font-size: 10px;
+    color: var(--neon-green);
+    text-shadow: 0 0 8px var(--neon-green);
+  }
+
+  .corner-deco {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    z-index: 11;
+  }
+  .corner-deco.tl { top: -3px; left: -3px; border-top: 4px solid var(--neon-yellow); border-left: 4px solid var(--neon-yellow); }
+  .corner-deco.tr { top: -3px; right: -3px; border-top: 4px solid var(--neon-yellow); border-right: 4px solid var(--neon-yellow); }
+  .corner-deco.bl { bottom: -3px; left: -3px; border-bottom: 4px solid var(--neon-yellow); border-left: 4px solid var(--neon-yellow); }
+  .corner-deco.br { bottom: -3px; right: -3px; border-bottom: 4px solid var(--neon-yellow); border-right: 4px solid var(--neon-yellow); }
+
+  .insert-coin {
+    font-size: 8px;
+    color: var(--neon-orange);
+    text-shadow: 0 0 10px var(--neon-orange);
+    margin-top: 14px;
+    z-index: 10;
+    animation: blink 1s step-end infinite;
+    letter-spacing: 3px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+
+<div class="title">⚡ ELECTRON BLASTER ⚡</div>
+<div class="subtitle">ANTENNA WAVE TRANSMISSION UNIT</div>
+
+<div class="canvas-wrapper">
+  <div class="corner-deco tl"></div>
+  <div class="corner-deco tr"></div>
+  <div class="corner-deco bl"></div>
+  <div class="corner-deco br"></div>
+  <canvas id="c"></canvas>
+</div>
+
+<div class="hud">
+  <div class="hud-item">
+    <div class="hud-label">FREQ</div>
+    <div class="hud-value" id="freqVal">2.45 GHz</div>
+  </div>
+  <div class="hud-item">
+    <div class="hud-label">POWER</div>
+    <div class="hud-value" id="powerVal">MAX</div>
+  </div>
+  <div class="hud-item">
+    <div class="hud-label">ELECTRONS</div>
+    <div class="hud-value" id="eleVal">12</div>
+  </div>
+</div>
+
+<div class="insert-coin">★ INSERT COIN TO TRANSMIT ★</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const W = Math.min(window.innerWidth - 40, 860);
+const H = Math.min(window.innerHeight * 0.62, 480);
+canvas.width = W;
+canvas.height = H;
+
+const CX = W * 0.22; // Antenna center x
+const CY = H * 0.5;
+const ANTENNA_H = H * 0.72;
+const ANTENNA_W = 10;
+const NUM_ELECTRONS = 12;
+const WAVE_ORIGIN_X = CX + ANTENNA_W / 2 + 10;
+
+// Electrons along the antenna rod
+const electrons = Array.from({length: NUM_ELECTRONS}, (_, i) => ({
+  id: i,
+  baseY: CY - ANTENNA_H/2 + (i + 0.5) * (ANTENNA_H / NUM_ELECTRONS),
+  phase: (i / NUM_ELECTRONS) * Math.PI * 2,
+  amplitude: 8 + Math.random() * 4,
+  speed: 0.06 + Math.random() * 0.02,
+  sparkTimer: 0,
+  trailX: [],
+  trailY: [],
+}));
+
+// Wave packets emitted to the right
+const wavePackets = [];
+let lastEmit = 0;
+
+let t = 0;
+let score = 0;
+
+function emitWavePacket() {
+  wavePackets.push({
+    x: WAVE_ORIGIN_X,
+    born: t,
+    color: Math.random() > 0.5 ? '#00ffff' : '#ff00ff',
+    amp: 30 + Math.random() * 25,
+    freq: 0.04 + Math.random() * 0.02,
+    speed: 1.4 + Math.random() * 0.5,
+    alpha: 1,
+    cycles: 3 + Math.floor(Math.random() * 3),
+  });
+}
+
+function drawGrid() {
+  ctx.strokeStyle = 'rgba(0,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 40) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+}
+
+function drawAntenna() {
+  // Base/ground
+  const groundY = CY + ANTENNA_H / 2;
+  ctx.strokeStyle = '#ff6600';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = '#ff6600';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(CX - 30, groundY + 10);
+  ctx.lineTo(CX + 30, groundY + 10);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(CX - 18, groundY + 18);
+  ctx.lineTo(CX + 18, groundY + 18);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(CX - 8, groundY + 26);
+  ctx.lineTo(CX + 8, groundY + 26);
+  ctx.stroke();
+
+  // Rod
+  const grad = ctx.createLinearGradient(CX - ANTENNA_W/2, 0, CX + ANTENNA_W/2, 0);
+  grad.addColorStop(0, '#444');
+  grad.addColorStop(0.3, '#aaffcc');
+  grad.addColorStop(0.7, '#00ff88');
+  grad.addColorStop(1, '#222');
+  ctx.fillStyle = grad;
+  ctx.shadowColor = '#00ff88';
+  ctx.shadowBlur = 18;
+  ctx.fillRect(CX - ANTENNA_W/2, CY - ANTENNA_H/2, ANTENNA_W, ANTENNA_H);
+
+  // Tip glow
+  ctx.shadowBlur = 30;
+  ctx.shadowColor = '#ffff00';
+  ctx.fillStyle = '#ffff00';
+  ctx.beginPath();
+  ctx.arc(CX, CY - ANTENNA_H/2, 6, 0, Math.PI*2);
+  ctx.fill();
+
+  // Label
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#ff00ff';
+  ctx.font = '7px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#ff00ff';
+  ctx.shadowBlur = 8;
+  ctx.fillText('ANT-1', CX, groundY + 42);
+  ctx.shadowBlur = 0;
+}
+
+function drawElectron(e, x, y) {
+  // Trail
+  e.trailX.unshift(x); e.trailY.unshift(y);
+  if (e.trailX.length > 8) { e.trailX.pop(); e.trailY.pop(); }
+  for (let i = 1; i < e.trailX.length; i++) {
+    ctx.beginPath();
+    ctx.arc(e.trailX[i], e.trailY[i], 3 * (1 - i/e.trailX.length), 0, Math.PI*2);
+    ctx.fillStyle = `rgba(0,200,255,${0.15 * (1 - i/e.trailX.length)})`;
+    ctx.fill();
+  }
+
+  // Glow orb
+  const grd = ctx.createRadialGradient(x, y, 0, x, y, 10);
+  grd.addColorStop(0, '#ffffff');
+  grd.addColorStop(0.3, '#00ffff');
+  grd.addColorStop(1, 'rgba(0,100,255,0)');
+  ctx.fillStyle = grd;
+  ctx.shadowColor = '#00ffff';
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.arc(x, y, 6, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Pixel ring
+  ctx.strokeStyle = '#ffff00';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(x, y, 9 + Math.sin(t * 8 + e.phase) * 2, 0, Math.PI*2);
+  ctx.stroke();
+
+  // Electric field lines from electron (small arcs going right)
+  const lineCount = 4;
+  for (let k = 0; k < lineCount; k++) {
+    const angle = (-Math.PI/3) + (k / (lineCount-1)) * (2*Math.PI/3);
+    if (Math.abs(angle) < 0.3) continue; // skip ones pointing left
+    const len = 16 + Math.sin(t * 4 + k) * 4;
+    ctx.strokeStyle = `rgba(255,0,255,0.4)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle)*len, y + Math.sin(angle)*len);
+    ctx.stroke();
+  }
+}
+
+function drawWavePacket(wp) {
+  const dx = wp.x - WAVE_ORIGIN_X;
+  const totalWidth = wp.cycles * (2 * Math.PI / wp.freq);
+  if (dx > totalWidth + W) return false; // off screen
+
+  const alpha = wp.alpha * Math.max(0, 1 - (dx / W) * 1.2);
+  if (alpha <= 0.01) return false;
+
+  // Draw the sinusoidal wave from packet origin
+  ctx.beginPath();
+  ctx.shadowColor = wp.color;
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = wp.color.replace(')', `,${alpha})`).replace('rgb','rgba').replace('#00ffff', `rgba(0,255,255,${alpha})`).replace('#ff00ff',`rgba(255,0,255,${alpha})`);
+
+  // just set alpha properly
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = wp.color;
+  ctx.lineWidth = 2.5;
+
+  const startX = wp.x;
+  const endX = Math.min(wp.x + totalWidth, W - 10);
+
+  ctx.beginPath();
+  for (let px = startX; px <= endX; px += 2) {
+    const localX = px - startX;
+    const decay = Math.max(0, 1 - localX / totalWidth);
+    const py = CY + Math.sin(localX * wp.freq - t * 3) * wp.amp * decay;
+    px === startX ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Arrowheads along wave to show direction
+  if (Math.floor(t * 20) % 3 === 0) {
+    const arrowX = startX + ((t * 60) % totalWidth);
+    if (arrowX < endX) {
+      const localX = arrowX - startX;
+      const decay = Math.max(0, 1 - localX / totalWidth);
+      const arrowY = CY + Math.sin(localX * wp.freq - t * 3) * wp.amp * decay;
+      ctx.fillStyle = wp.color;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(arrowX, arrowY, 4, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // Move packet forward
+  wp.x += wp.speed;
+  return true; // keep
+}
+
+function drawEFieldLabels() {
+  // E-field axis label
+  ctx.fillStyle = 'rgba(255,255,0,0.7)';
+  ctx.font = '7px "Press Start 2P"';
+  ctx.textAlign = 'left';
+  ctx.shadowColor = '#ffff00';
+  ctx.shadowBlur = 6;
+  ctx.fillText('E', W - 60, CY - 5);
+  ctx.fillText('→', W - 48, CY - 5);
+  ctx.shadowBlur = 0;
+
+  // Center axis line (dashed)
+  ctx.setLineDash([8, 8]);
+  ctx.strokeStyle = 'rgba(255,255,0,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(WAVE_ORIGIN_X, CY);
+  ctx.lineTo(W - 10, CY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawScore() {
+  ctx.fillStyle = '#ffff00';
+  ctx.font = '8px "Press Start 2P"';
+  ctx.textAlign = 'left';
+  ctx.shadowColor = '#ffff00';
+  ctx.shadowBlur = 8;
+  ctx.fillText(`SCORE: ${String(score).padStart(8,'0')}`, 10, 22);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#ff00ff';
+  ctx.font = '7px "Press Start 2P"';
+  ctx.shadowColor = '#ff00ff';
+  ctx.shadowBlur = 6;
+  ctx.fillText('1UP', W - 60, 22);
+  ctx.shadowBlur = 0;
+}
+
+function drawWaveformDisplay() {
+  // Mini oscilloscope box in corner
+  const bx = W - 160, by = H - 60, bw = 140, bh = 44;
+  ctx.strokeStyle = 'rgba(0,255,136,0.5)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.fillStyle = 'rgba(0,20,10,0.8)';
+  ctx.fillRect(bx, by, bw, bh);
+
+  ctx.font = '5px "Press Start 2P"';
+  ctx.fillStyle = '#00ff88';
+  ctx.shadowColor = '#00ff88';
+  ctx.shadowBlur = 4;
+  ctx.textAlign = 'left';
+  ctx.fillText('OSCILLOSCOPE', bx + 5, by + 10);
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 8;
+  for (let px = 0; px < bw - 10; px++) {
+    const py = (bh / 2) + Math.sin((px / (bw-10)) * Math.PI * 4 - t * 4) * (bh * 0.3);
+    px === 0 ? ctx.moveTo(bx + 5 + px, by + py) : ctx.lineTo(bx + 5 + px, by + py);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function frame() {
+  ctx.clearRect(0, 0, W, H);
+  drawGrid();
+
+  // Stars / particles in background
+  if (t < 1) {
+    // init stars lazily handled by Math.random seeded by index below
+  }
+
+  // Background stars
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 40; i++) {
+    const sx = ((i * 137.5) % (W - 40)) + 40;
+    const sy = ((i * 97.3) % H);
+    const twinkle = Math.abs(Math.sin(t * 1.5 + i));
+    ctx.globalAlpha = twinkle * 0.6;
+    ctx.fillRect(sx, sy, 1.5, 1.5);
+  }
+  ctx.globalAlpha = 1;
+
+  drawEFieldLabels();
+  drawAntenna();
+
+  // Update & draw electrons
+  electrons.forEach(e => {
+    const osc = Math.sin(t * 3.5 + e.phase) * e.amplitude;
+    const ex = CX + osc;
+    const ey = e.baseY;
+    drawElectron(e, ex, ey);
+  });
+
+  // Emit wave packets
+  if (t - lastEmit > 0.55) {
+    emitWavePacket();
+    lastEmit = t;
+    score += 100;
+  }
+
+  // Draw and update wave packets
+  for (let i = wavePackets.length - 1; i >= 0; i--) {
+    const keep = drawWavePacket(wavePackets[i]);
+    if (!keep) wavePackets.splice(i, 1);
+  }
+
+  drawWaveformDisplay();
+  drawScore();
+
+  // Pixel-style corner decoration
+  ctx.fillStyle = 'rgba(255,0,255,0.5)';
+  ctx.font = '8px "Press Start 2P"';
+  ctx.textAlign = 'right';
+  ctx.shadowColor = '#ff00ff';
+  ctx.shadowBlur = 6;
+  ctx.fillText('© 2084 ELECTROCORP', W - 8, H - 10);
+  ctx.shadowBlur = 0;
+
+  t += 0.016;
+  requestAnimationFrame(frame);
+}
+
+frame();
+</script>
+</body>
+</html>
